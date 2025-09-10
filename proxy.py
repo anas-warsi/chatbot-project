@@ -1,31 +1,44 @@
-# proxy.py
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import requests
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from datetime import datetime
+import torch
+import os
 
 app = Flask(__name__)
-CORS(app)  # allow frontend to access
+CORS(app)
 
-SPACE_API_URL = "https://huggingface.co/spaces/anaswarsi/chatbot-demo/api/predict"
+MODEL_NAME = "distilgpt2"
+model = None
+tokenizer = None
+generator = None
+
+def load_model():
+    global model, tokenizer, generator
+    if model is None or tokenizer is None:
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+        model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+        generator = pipeline("text-generation", model=model, tokenizer=tokenizer)
+
+def get_current_date():
+    return datetime.now().strftime("%Y-%m-%d")
+
+def generate_reply(user_input):
+    load_model()  # model will be loaded only on first request
+    date_info = f"Today's date is {get_current_date()}."
+    prompt = f"{date_info}\nUser: {user_input}\nBot:"
+    outputs = generator(prompt, max_length=150, num_return_sequences=1,
+                        do_sample=True, top_k=50, top_p=0.95, repetition_penalty=2.0)
+    reply = outputs[0].get("generated_text", "")
+    if "Bot:" in reply:
+        reply = reply.split("Bot:")[-1].strip()
+    return reply or "Sorry, I couldn’t generate a response."
 
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.json
-    if not data or "message" not in data:
-        return jsonify({"error": "No message provided"}), 400
-
-    message = data["message"]
-    try:
-        response = requests.post(
-            SPACE_API_URL,
-            json={"data": [message]},
-            timeout=30
-        )
-        hf_data = response.json()
-        bot_reply = hf_data.get("data", ["Sorry, no response."])[0]
-        return jsonify({"reply": bot_reply})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    user_input = data.get("message", "")
+    if not user_input:
+        return jsonify({"reply": "Please enter a message."})
+    reply = generate_reply(user_input)
+    return jsonify({"reply": reply})
