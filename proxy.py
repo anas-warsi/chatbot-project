@@ -8,7 +8,7 @@ app = Flask(__name__)
 CORS(app, origins=["*"])  # Allow all origins
 
 # Hugging Face Space event-based endpoint
-HF_SPACE_URL = "https://anaswarsi-chatbot-demo.hf.space/gradio_api/call/predict"
+HF_SPACE_URL = "https://anaswarsi-chatbot-demo.hf.space/run/predict"
 
 @app.route("/", methods=["GET"])
 def home():
@@ -75,3 +75,4 @@ def health():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
