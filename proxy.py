@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify
+import requests
 from flask_cors import CORS
-from gradio_client import Client
 import os
 
 app = Flask(__name__)
 CORS(app, origins=["*"])  # Allow all origins
 
-# Initialize Gradio client for your HF Space
-client = Client("anaswarsi/chatbot-demo")
+# Your Hugging Face Space API endpoint
+HF_SPACE_URL = "https://anaswarsi-chatbot-demo.hf.space/api/predict"
 
 @app.route("/", methods=["GET"])
 def home():
@@ -30,20 +30,33 @@ def chat():
         if not user_message:
             return jsonify({"error": "No message provided"}), 400
 
-        # Call the Gradio /predict API
-        bot_response = client.predict(
-            user_message,
-            api_name="/predict"
-        )
+        payload = {"data": [user_message]}
+        headers = {"Content-Type": "application/json"}
 
-        return jsonify({"success": True, "response": bot_response})
+        response = requests.post(HF_SPACE_URL, json=payload, headers=headers, timeout=30)
 
+        if response.status_code != 200:
+            return jsonify({
+                "error": f"HuggingFace API error: {response.status_code}",
+                "details": response.text
+            }), 500
+
+        result = response.json()
+
+        if "data" in result and len(result["data"]) > 0:
+            bot_response = result["data"][0]
+            return jsonify({"success": True, "response": bot_response})
+        else:
+            return jsonify({"error": "Invalid response format", "details": str(result)}), 500
+
+    except requests.RequestException as e:
+        return jsonify({"error": "Network error", "details": str(e)}), 500
     except Exception as e:
         return jsonify({"error": "Server error", "details": str(e)}), 500
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "healthy", "hf_space": "anaswarsi/chatbot-demo"})
+    return jsonify({"status": "healthy", "hf_endpoint": HF_SPACE_URL})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
