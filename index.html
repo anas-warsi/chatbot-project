@@ -1,18 +1,276 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
-  <title>Chatbot Demo</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot - Portfolio Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h1 {
+            margin: 0;
+            font-size: 1.8em;
+            font-weight: 600;
+        }
+
+        .chat-header p {
+            margin: 5px 0 0 0;
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .message.bot .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e1e5e9;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .message.error .message-content {
+            background: #fee;
+            color: #d63031;
+            border: 1px solid #fab1a0;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e1e5e9;
+            display: flex;
+            gap: 10px;
+        }
+
+        #userInput {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 0.95em;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        #userInput:focus {
+            border-color: #667eea;
+        }
+
+        #sendButton {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+        }
+
+        #sendButton:hover {
+            transform: translateY(-1px);
+        }
+
+        #sendButton:disabled {
+            opacity: 0.6;
+            transform: none;
+            cursor: not-allowed;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 10px 16px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .typing-indicator.show {
+            display: block;
+        }
+
+        @media (max-width: 600px) {
+            .chat-container {
+                height: 100vh;
+                border-radius: 0;
+            }
+            
+            .message-content {
+                max-width: 85%;
+            }
+        }
+    </style>
 </head>
 <body>
-  <h1>Chatbot Demo</h1>
-  <input type="text" id="userInput" placeholder="Type a message...">
-  <button onclick="sendMessage()">Send</button>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>AI Chatbot Demo</h1>
+            <p>Powered by DistilGPT2 • Built for Portfolio</p>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+                <div class="message-content">
+                    👋 Hi! I'm an AI chatbot. Ask me anything - I can help with questions, have conversations, or just chat! Try asking about dates, general knowledge, or anything else.
+                </div>
+            </div>
+        </div>
+        
+        <div class="typing-indicator" id="typingIndicator">
+            Bot is typing...
+        </div>
+        
+        <div class="chat-input">
+            <input type="text" id="userInput" placeholder="Type your message here..." autocomplete="off">
+            <button id="sendButton" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
 
-  <div id="chat"></div>
-
-  <script src="script.js"></script>
+    <script>
+        // Replace with your actual Render proxy URL
+        const PROXY_URL = "https://your-render-app-name.onrender.com/chat";
+        
+        async function sendMessage() {
+            const input = document.getElementById("userInput");
+            const sendButton = document.getElementById("sendButton");
+            const chatMessages = document.getElementById("chatMessages");
+            const typingIndicator = document.getElementById("typingIndicator");
+            
+            const userMessage = input.value.trim();
+            if (!userMessage) return;
+            
+            // Disable input and show user message
+            input.disabled = true;
+            sendButton.disabled = true;
+            input.value = "";
+            
+            // Add user message to chat
+            addMessage("user", userMessage);
+            
+            // Show typing indicator
+            typingIndicator.classList.add("show");
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            try {
+                const response = await fetch(PROXY_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ message: userMessage }),
+                });
+                
+                const data = await response.json();
+                
+                // Hide typing indicator
+                typingIndicator.classList.remove("show");
+                
+                if (data.success && data.response) {
+                    addMessage("bot", data.response);
+                } else {
+                    addMessage("error", data.error || "Sorry, I couldn't process your request.");
+                }
+                
+            } catch (error) {
+                // Hide typing indicator
+                typingIndicator.classList.remove("show");
+                addMessage("error", "Network error. Please check your connection and try again.");
+                console.error("Error:", error);
+            }
+            
+            // Re-enable input
+            input.disabled = false;
+            sendButton.disabled = false;
+            input.focus();
+        }
+        
+        function addMessage(type, content) {
+            const chatMessages = document.getElementById("chatMessages");
+            const messageDiv = document.createElement("div");
+            messageDiv.className = `message ${type}`;
+            
+            const messageContent = document.createElement("div");
+            messageContent.className = "message-content";
+            messageContent.textContent = content;
+            
+            messageDiv.appendChild(messageContent);
+            chatMessages.appendChild(messageDiv);
+            
+            // Auto-scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Allow Enter key to send message
+        document.getElementById("userInput").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        });
+        
+        // Focus input on page load
+        document.getElementById("userInput").focus();
+    </script>
 </body>
 </html>
