@@ -1,18 +1,21 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 import requests
+import time
 import os
+from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)  # Allow all origins
+CORS(app, origins=["*"])
 
-# Hugging Face Space queue endpoint
-HF_QUEUE_URL = "https://anaswarsi-chatbot-demo.hf.space/gradio_api/queue/predict"
+# Hugging Face Space base URL (CHANGE if your space name changes)
+HF_SPACE = "https://anaswarsi-chatbot-demo.hf.space"
+JOIN_URL = f"{HF_SPACE}/gradio_api/queue/join"
+DATA_URL = f"{HF_SPACE}/gradio_api/queue/data"
 
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({
-        "message": "Chatbot Proxy Server is running!",
+        "message": "Chatbot Proxy Server (Queue) is running!",
         "endpoints": {
             "/chat": "POST - Send message to chatbot"
         },
@@ -28,35 +31,64 @@ def chat():
 
         user_message = data["message"]
 
-        # Send request to Hugging Face Space queue API
-        payload = {"data": [user_message]}
+        # Step 1: Join queue
+        payload = {
+            "data": [user_message],
+            "event_data": None,
+            "fn_index": 0  # function index (0 if single interface)
+        }
         headers = {"Content-Type": "application/json"}
 
-        response = requests.post(HF_QUEUE_URL, json=payload, headers=headers, timeout=30)
-
-        if response.status_code != 200:
+        join_resp = requests.post(JOIN_URL, json=payload, headers=headers, timeout=30)
+        if join_resp.status_code != 200:
             return jsonify({
-                "error": f"HuggingFace API error: {response.status_code}",
-                "details": response.text
+                "error": f"HuggingFace join error {join_resp.status_code}",
+                "details": join_resp.text
             }), 500
 
-        result = response.json()
+        join_data = join_resp.json()
+        event_id = join_data.get("hash")
+        if not event_id:
+            return jsonify({
+                "error": "No event ID returned from HuggingFace",
+                "details": join_data
+            }), 500
 
-        # Extract bot response from queue API
-        if "data" in result and len(result["data"]) > 0:
-            bot_response = result["data"][0]
-            return jsonify({"success": True, "response": bot_response})
-        else:
-            return jsonify({"error": "Invalid response format", "details": str(result)}), 500
+        # Step 2: Poll for result
+        final_result = None
+        for _ in range(60):  # wait up to ~60 seconds
+            poll_resp = requests.get(f"{DATA_URL}?session_hash={event_id}", timeout=30)
+            if poll_resp.status_code != 200:
+                return jsonify({
+                    "error": f"HuggingFace poll error {poll_resp.status_code}",
+                    "details": poll_resp.text
+                }), 500
 
-    except requests.RequestException as e:
-        return jsonify({"error": "Network error", "details": str(e)}), 500
+            poll_data = poll_resp.json()
+            if "data" in poll_data and poll_data["data"]:
+                final_result = poll_data
+                break
+            time.sleep(1)
+
+        if not final_result:
+            return jsonify({"error": "No response from HuggingFace (timeout)"}), 504
+
+        # Step 3: Extract chatbot response
+        bot_reply = final_result["data"][0] if "data" in final_result else "No reply"
+
+        return jsonify({"success": True, "response": bot_reply})
+
     except Exception as e:
         return jsonify({"error": "Server error", "details": str(e)}), 500
 
+
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "healthy", "hf_endpoint": HF_QUEUE_URL})
+    return jsonify({
+        "status": "healthy",
+        "hf_endpoint": HF_SPACE
+    })
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
