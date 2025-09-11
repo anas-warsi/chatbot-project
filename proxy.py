@@ -1,13 +1,13 @@
 from flask import Flask, request, jsonify
-import requests
 from flask_cors import CORS
+from gradio_client import Client
 import os
 
 app = Flask(__name__)
-CORS(app, origins=["*"])  # Allow GitHub Pages frontend
+CORS(app, origins=["*"])  # Allow all origins
 
-# ✅ Correct Hugging Face endpoint
-HF_SPACE_URL = "https://anaswarsi-chatbot-demo.hf.space/run/predict"
+# Connect to your Hugging Face Space via Gradio Client
+client = Client("anaswarsi/chatbot-demo")
 
 @app.route("/", methods=["GET"])
 def home():
@@ -21,40 +21,21 @@ def home():
 def chat():
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({"error": "No JSON data provided"}), 400
-
-        user_message = data.get("message", "")
-        if not user_message:
+        if not data or "message" not in data:
             return jsonify({"error": "No message provided"}), 400
 
-        payload = {"data": [user_message]}
-        headers = {"Content-Type": "application/json"}
+        user_message = data["message"]
 
-        response = requests.post(HF_SPACE_URL, json=payload, headers=headers, timeout=30)
+        # Call the Gradio API
+        result = client.predict(user_message, api_name="/predict")
+        return jsonify({"success": True, "response": result})
 
-        if response.status_code != 200:
-            return jsonify({
-                "error": f"HuggingFace API error: {response.status_code}",
-                "details": response.text
-            }), 500
-
-        result = response.json()
-
-        # ✅ HuggingFace returns {"data": ["bot reply"]}
-        if "data" in result and len(result["data"]) > 0:
-            return jsonify({"success": True, "response": result["data"][0]})
-        else:
-            return jsonify({"error": "Invalid response format", "details": result}), 500
-
-    except requests.RequestException as e:
-        return jsonify({"error": "Network error", "details": str(e)}), 500
     except Exception as e:
         return jsonify({"error": "Server error", "details": str(e)}), 500
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "healthy", "hf_endpoint": HF_SPACE_URL})
+    return jsonify({"status": "healthy", "space": "anaswarsi/chatbot-demo"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
