@@ -6,7 +6,7 @@ async function sendMessage() {
   chatDiv.innerHTML += `<p><strong>You:</strong> ${input}</p>`;
 
   try {
-    const response = await fetch("https://your-render-proxy.onrender.com/proxy", {
+    const response = await fetch("https://chatbot-project-5-fj71.onrender.com/proxy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ data: [input] }),
@@ -21,3 +21,4 @@ async function sendMessage() {
 
   document.getElementById("userInput").value = "";
 }
+
