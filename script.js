@@ -6,14 +6,14 @@ async function sendMessage() {
   chatDiv.innerHTML += `<p><strong>You:</strong> ${input}</p>`;
 
   try {
-    const response = await fetch("https://chatbot-project-5-fj71.onrender.com/proxy", {
+    const response = await fetch("https://chatbot-project-5-fj71.onrender.com/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: [input] }),
+      body: JSON.stringify({ message: input }), // <-- key must be "message"
     });
 
     const result = await response.json();
-    const botMessage = result?.data?.[0] || "No response";
+    const botMessage = result?.response || "No response"; // <-- access "response"
     chatDiv.innerHTML += `<p><strong>Bot:</strong> ${botMessage}</p>`;
   } catch (err) {
     chatDiv.innerHTML += `<p style="color:red;">Error: ${err}</p>`;
@@ -21,4 +21,3 @@ async function sendMessage() {
 
   document.getElementById("userInput").value = "";
 }
-
