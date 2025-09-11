@@ -2,11 +2,12 @@ from flask import Flask, request, jsonify
 import requests
 from flask_cors import CORS
 import os
+import time
 
 app = Flask(__name__)
 CORS(app, origins=["*"])  # Allow all origins
 
-# Hugging Face Space API endpoint
+# Hugging Face Space event-based endpoint
 HF_SPACE_URL = "https://anaswarsi-chatbot-demo.hf.space/gradio_api/call/predict"
 
 @app.route("/", methods=["GET"])
@@ -26,29 +27,41 @@ def chat():
         if not data:
             return jsonify({"error": "No JSON data provided"}), 400
 
-        user_message = data.get("message", "")
+        user_message = data.get("message", "").strip()
         if not user_message:
             return jsonify({"error": "No message provided"}), 400
 
+        # Step 1: Send message to HF Space and get event ID
         payload = {"data": [user_message]}
         headers = {"Content-Type": "application/json"}
+        r1 = requests.post(HF_SPACE_URL, json=payload, headers=headers, timeout=30)
+        
+        if r1.status_code != 200:
+            return jsonify({"error": f"HuggingFace API error (step1): {r1.status_code}", "details": r1.text}), 500
 
-        response = requests.post(HF_SPACE_URL, json=payload, headers=headers, timeout=30)
+        res1 = r1.json()
+        event_id = res1.get("id") or res1.get("hash")
+        if not event_id:
+            return jsonify({"error": "No event ID returned from HuggingFace", "details": str(res1)}), 500
 
-        if response.status_code != 200:
-            return jsonify({
-                "error": f"HuggingFace API error: {response.status_code}",
-                "details": response.text
-            }), 500
+        # Step 2: Poll the event endpoint until we get a response
+        result = None
+        for _ in range(10):  # try 10 times (approx 5s)
+            r2 = requests.get(f"{HF_SPACE_URL}/{event_id}", headers=headers, timeout=30)
+            if r2.status_code != 200:
+                continue
+            res2 = r2.json()
+            # Check if the event contains "data"
+            if "data" in res2 and len(res2["data"]) > 0:
+                result = res2
+                break
+            time.sleep(0.5)
 
-        result = response.json()
+        if not result:
+            return jsonify({"error": "No valid response from HuggingFace", "details": str(res2)}), 500
 
-        # result should have "data" key
-        if "data" in result and len(result["data"]) > 0:
-            bot_response = result["data"][0]
-            return jsonify({"success": True, "response": bot_response})
-        else:
-            return jsonify({"error": "Invalid response format", "details": str(result)}), 500
+        bot_response = result["data"][0]
+        return jsonify({"success": True, "response": bot_response})
 
     except requests.RequestException as e:
         return jsonify({"error": "Network error", "details": str(e)}), 500
@@ -62,4 +75,3 @@ def health():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
-
