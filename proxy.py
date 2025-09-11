@@ -1,44 +1,20 @@
 from flask import Flask, request, jsonify
+import requests
 from flask_cors import CORS
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-from datetime import datetime
-import torch
-import os
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # Allow cross-origin requests
 
-MODEL_NAME = "distilgpt2"
-model = None
-tokenizer = None
-generator = None
+HF_API_URL = "https://anaswarsi-chatbot-demo.hf.space/gradio_api/call/predict"
 
-def load_model():
-    global model, tokenizer, generator
-    if model is None or tokenizer is None:
-        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-        model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
-        generator = pipeline("text-generation", model=model, tokenizer=tokenizer)
+@app.route("/proxy", methods=["POST"])
+def proxy():
+    try:
+        data = request.get_json()
+        response = requests.post(HF_API_URL, json=data)
+        return jsonify(response.json())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-def get_current_date():
-    return datetime.now().strftime("%Y-%m-%d")
-
-def generate_reply(user_input):
-    load_model()  # model will be loaded only on first request
-    date_info = f"Today's date is {get_current_date()}."
-    prompt = f"{date_info}\nUser: {user_input}\nBot:"
-    outputs = generator(prompt, max_length=150, num_return_sequences=1,
-                        do_sample=True, top_k=50, top_p=0.95, repetition_penalty=2.0)
-    reply = outputs[0].get("generated_text", "")
-    if "Bot:" in reply:
-        reply = reply.split("Bot:")[-1].strip()
-    return reply or "Sorry, I couldn’t generate a response."
-
-@app.route("/chat", methods=["POST"])
-def chat():
-    data = request.json
-    user_input = data.get("message", "")
-    if not user_input:
-        return jsonify({"reply": "Please enter a message."})
-    reply = generate_reply(user_input)
-    return jsonify({"reply": reply})
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)

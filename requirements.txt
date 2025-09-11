@@ -1,5 +1,4 @@
-Flask
+flask
+requests
 flask-cors
-transformers
-torch
 gunicorn
