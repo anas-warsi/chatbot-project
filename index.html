@@ -31,17 +31,17 @@
     }
 
     .chat-container {
-      background: white;
-      border-radius: 15px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 800px;
-      height: 600px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      transition: background 0.5s ease;
-    }
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 25px 80px rgba(0,0,0,0.55);
+  width: 100%;
+  max-width: 750px;
+  height: calc(100vh - 40px);   /* account for body padding (20px top + 20px bottom) */
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
     body.dark .chat-container {
       background: #2a2a2a;
@@ -52,6 +52,7 @@
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       padding: 20px;
+      flex-shrink: 0;
       text-align: center;
       position: relative;
     }
@@ -242,9 +243,9 @@ body.dark .chat-header {
       50% { opacity: 1; }
     }
 
-    @media (max-width: 600px) {
+   @media (max-width: 600px) {
   body.light {
-    background: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
   body.dark {
     background: #1e1e1e;
@@ -252,13 +253,14 @@ body.dark .chat-header {
   .chat-container {
     height: 100vh;
     width: 100vw;
-    border-radius: 0;
-    box-shadow: none;
+    border-radius: 20px; /* keep rounded corners */
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
   }
   .message-content {
     max-width: 85%;
   }
 }
+
 
   </style>
 </head>
@@ -273,7 +275,7 @@ body.dark .chat-header {
     <div class="chat-messages" id="chatMessages">
       <div class="message bot">
         <div class="message-content">
-          👋 Hello! I'm your College Assistant Bot. I can help you with syllabus, exam timetables, faculty info, college facilities, placements, and also answer general questions like dates, facts, or common queries. Type “College Data” to explore your college info!
+          👋 Hi! I'm an AI chatbot. Ask me anything - I can help with questions, have conversations, or just chat! Try asking about dates, general knowledge, or anything else.
         </div>
       </div>
     </div>
@@ -370,4 +372,3 @@ body.dark .chat-header {
   </script>
 </body>
 </html>
-
